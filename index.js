@@ -348,7 +348,7 @@ function mount() {
     document.getElementById('extensionsMenu')?.append(menu);
     const settings = el('div', 'tcm-settings');
     settings.append(button('打开角色聊天管理', open), el('small', '', '按角色卡浏览、重命名和删除聊天。'));
-    document.getElementById('extensions_settings2')?.append(settings);
+    document.getElementById('assets_container')?.after(settings);
 }
 
 await window.__TAURITAVERN__.ready;
