@@ -1,5 +1,4 @@
-import { deleteCharacterChatByName, renameGroupOrCharacterChat } from '/script.js';
-import { deleteGroupChat } from '/scripts/group-chats.js';
+import * as host from './host.js';
 import { buildOwners, chatKey, filterOwners, ownerKey, validateName } from './model.js';
 
 const context = () => SillyTavern.getContext();
@@ -20,6 +19,7 @@ function mount() {
     if (document.getElementById('tcm-dialog')) return;
     const dialog = el('dialog', 'tcm-dialog');
     dialog.id = 'tcm-dialog';
+    dialog.tabIndex = -1;
     dialog.setAttribute('aria-labelledby', 'tcm-title');
     const header = el('header', 'tcm-header');
     const heading = el('div');
@@ -37,6 +37,7 @@ function mount() {
     const refresh = button('刷新', () => refreshList());
     toolbar.append(searchLabel, refresh);
     const status = el('p', 'tcm-status');
+    status.tabIndex = -1;
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
     const batch = el('div', 'tcm-batch');
@@ -150,6 +151,7 @@ function mount() {
             arrow.setAttribute('aria-hidden', 'true');
             summary.append(art, text, arrow);
             const chats = el('div', 'tcm-chats');
+            if (owner.kind !== 'orphan') chats.append(button('＋ 新建聊天', () => createChat(owner), 'tcm-new-chat tcm-primary'));
             if (!owner.chats.length) chats.append(el('p', 'tcm-empty', '这个角色还没有保存的聊天。'));
             if (owner.kind === 'orphan') chats.append(el('p', 'tcm-muted', '原角色不存在或无法识别，恢复对应角色后才能管理这些聊天。'));
             for (const chat of owner.chats) chats.append(renderChat(owner, chat));
@@ -186,7 +188,9 @@ function mount() {
             button('重命名', () => { editor = { key, type: 'rename' }; render(); list.querySelector('.tcm-rename-input')?.focus(); }),
             button('删除', () => { editor = { key, type: 'delete' }; render(); list.querySelector('.tcm-confirm-cancel')?.focus(); }, 'tcm-danger'),
         );
-        row.append(checkbox, content, actions);
+        const selectLabel = el('label', 'tcm-select');
+        selectLabel.append(checkbox);
+        row.append(selectLabel, content, actions);
         if (editor?.key === key) row.append(renderEditor(owner, chat));
         return row;
     }
@@ -231,15 +235,9 @@ function mount() {
             input.setAttribute('aria-invalid', String(Boolean(message)));
             if (message) { input.focus(); return; }
             const name = input.value.trim();
+            input.blur();
             mutate(async () => {
-                const characterId = context().characters.findIndex(character => character.avatar === owner.id);
-                if (owner.kind === 'character' && characterId < 0) throw new Error('角色已不存在，请刷新列表。');
-                const committed = await renameGroupOrCharacterChat({
-                    characterId: owner.kind === 'character' ? characterId : undefined,
-                    groupId: owner.kind === 'group' ? owner.id : undefined,
-                    oldFileName: chat.name, newFileName: name, loader: false,
-                });
-                if (!committed) throw new Error('宿主未完成重命名，请查看提示并重试。');
+                const committed = await host.renameChat(owner, chat.name, name);
                 if (selected.delete(key)) selected.add(chatKey(owner, committed));
                 return '聊天已重命名。';
             });
@@ -259,7 +257,6 @@ function mount() {
             await readList();
             render();
             tell(result);
-            search.focus();
         } catch (error) {
             if (result) {
                 owners = [];
@@ -271,17 +268,12 @@ function mount() {
             tell(result ? `${result} 列表刷新失败，请点击刷新。` : error.message, true);
         } finally {
             setBusy(false);
-            if (!editor) search.focus();
+            if (!editor) status.focus({ preventScroll: true });
         }
     }
 
     async function deleteOne(owner, chat) {
-        if (owner.kind === 'group') await deleteGroupChat(owner.id, chat.name);
-        else {
-            const characterId = context().characters.findIndex(character => character.avatar === owner.id);
-            if (characterId < 0) throw new Error('角色已不存在，请刷新列表。');
-            await deleteCharacterChatByName(characterId, chat.name);
-        }
+        await host.deleteChat(owner, chat.name);
         selected.delete(chatKey(owner, chat.name));
         owner.chats = owner.chats.filter(entry => entry !== chat);
     }
@@ -311,10 +303,20 @@ function mount() {
         if (busy) return;
         setBusy(true);
         try {
-            if (owner.kind === 'group') await context().openGroupChat(owner.id, chat.name);
-            else await context().openCharacterChat(chat.name, owner.id);
+            await host.openChat(owner, chat.name);
             dialog.close();
         } catch (error) { tell(`无法打开聊天：${error.message}`, true); }
+        finally { setBusy(false); }
+    }
+
+    async function createChat(owner) {
+        if (busy) return;
+        setBusy(true);
+        tell('正在创建聊天…');
+        try {
+            await host.createChat(owner);
+            dialog.close();
+        } catch (error) { tell(`新建聊天：${error.message}`, true); }
         finally { setBusy(false); }
     }
 
@@ -325,14 +327,17 @@ function mount() {
         selected.clear();
         render();
     });
-    dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
+    dialog.addEventListener('cancel', event => {
+        if (busy) event.preventDefault();
+        else if (editor) { event.preventDefault(); finishEditor(editor.key); }
+    });
     dialog.addEventListener('close', () => { opener?.focus(); });
     const open = event => {
         if (dialog.open) return;
         opener = event.currentTarget;
         selected.clear();
         dialog.showModal();
-        search.focus();
+        close.focus({ preventScroll: true });
         refreshList();
     };
     const menu = button('角色聊天管理', open, 'list-group-item flex-container flexGap5');

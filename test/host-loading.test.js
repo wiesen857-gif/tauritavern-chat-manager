@@ -17,9 +17,11 @@ test('extension loads when the host exports deleteCharacterChatByName without de
     };
     try {
         const source = await readFile(new URL('../index.js', import.meta.url), 'utf8');
-        const entry = source
+        const hostSource = (await readFile(new URL('../host.js', import.meta.url), 'utf8'))
             .replace("'/script.js'", JSON.stringify(moduleUrl('export async function deleteCharacterChatByName() {} export async function renameGroupOrCharacterChat() {}')))
-            .replace("'/scripts/group-chats.js'", JSON.stringify(moduleUrl('export async function deleteGroupChat() {}')))
+            .replace("'/scripts/group-chats.js'", JSON.stringify(moduleUrl('export async function deleteGroupChatByName() {}')));
+        const entry = source
+            .replace("'./host.js'", JSON.stringify(moduleUrl(hostSource)))
             .replace("'./model.js'", JSON.stringify(new URL('../model.js', import.meta.url).href));
         await import(moduleUrl(entry)).catch(error => { throw new Error(error.message); });
         assert.equal(typeof listener, 'function', 'entrypoint must register its UI after host initialization');
