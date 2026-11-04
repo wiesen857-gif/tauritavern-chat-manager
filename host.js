@@ -42,8 +42,8 @@ export async function openChat(owner, name) {
     const ctx = context();
     if (ctx.chatId) await ctx.saveChat();
     assertIdle();
-    if (owner.kind === 'group') await ctx.openGroupChat(owner.id, name);
-    else await ctx.openCharacterChat(name, owner.id);
+    if (owner.kind === 'group') await requireFunction(groups, 'openGroupById')(owner.id, { chatId: name });
+    else await requireFunction(ctx, 'selectCharacterById')(characterIndex(owner), { switchMenu: false, chatFile: name });
     if (!isSelected(owner) || context().chatId !== name) throw new Error('宿主未能打开该聊天，请稍后重试。');
 }
 

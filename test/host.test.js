@@ -21,16 +21,21 @@ test('native host operations preserve openings, identities and failure results',
         },
         async deleteGroupChatByName(id, name) { if (!swallowedDelete) data.set(id, data.get(id).filter(n => n !== name)); },
         async renameGroupOrCharacterChat() { return '新名称'; },
-        async openGroupById(id) {
+        async openGroupById(id, { chatId } = {}) {
             ctx.groupId = id; ctx.characterId = undefined;
-            ctx.chatId = data.get(id)[0] || '群聊开场'; ctx.chat = [{ mes: '群聊原生开场' }];
+            ctx.chatId = chatId ?? data.get(id)[0] ?? '群聊开场'; ctx.chat = [{ mes: '群聊原生开场' }];
         },
     };
-    ctx.selectCharacterById = async index => {
+    ctx.selectCharacterById = async (index, { chatFile } = {}) => {
         calls.push(['select', index]); if (failSelect) return;
         ctx.characterId = index; ctx.groupId = undefined;
-        ctx.chatId = data.get(ctx.characters[index].avatar)[0] || '首次开场';
+        ctx.chatId = chatFile ?? data.get(ctx.characters[index].avatar)[0] ?? '首次开场';
         ctx.chat = [{ mes: '原生开场白', extra: { initialized: true } }];
+    };
+    // Older TT ignores an extra avatar argument and only opens the selected character.
+    ctx.openCharacterChat = async name => {
+        if (ctx.characterId === undefined) return;
+        await ctx.selectCharacterById(ctx.characterId, { chatFile: name });
     };
     ctx.saveChat = async () => {
         calls.push(['save']); if (failSave) throw new Error('保存失败');
@@ -50,6 +55,18 @@ test('native host operations preserve openings, identities and failure results',
     try {
         const host = await import(url(source));
         const owner = { kind: 'character', id: 'same#1.png' };
+        await t.test('older host opens a specific character chat from the welcome page', async () => {
+            await host.openChat(owner, '旧聊天');
+            assert.equal(ctx.characterId, 0);
+            assert.equal(ctx.chatId, '旧聊天');
+        });
+        await t.test('older host switches away from another role to the exact requested owner', async () => {
+            ctx.characterId = 1; ctx.chatId = undefined;
+            await host.openChat(owner, '旧聊天');
+            assert.equal(ctx.characterId, 0);
+            assert.equal(ctx.chatId, '旧聊天');
+            assert.deepEqual(data.get('same#2.png'), []);
+        });
         await t.test('existing character creates separate persisted chat with native opening', async () => {
             const name = await host.createChat(owner);
             assert.ok(data.get(owner.id).includes(name)); assert.ok(data.get(owner.id).includes('旧聊天'));
