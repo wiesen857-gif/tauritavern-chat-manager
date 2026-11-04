@@ -2,6 +2,12 @@
 
 面向 TauriTavern 2.4.0（构建 `fff9af0333be`）的独立前端扩展，不依赖酒馆助手。
 
+### 1.0.1 更新
+
+修复部分 Android 安装包加载时提示 `/script.js` 没有导出 `deleteCharacterChat` 的问题。改用旧版与新版宿主共有的 `deleteCharacterChatByName(characterId, fileName)`，角色身份先通过精确头像文件名定位，再传入宿主要求的角色索引。
+
+已安装用户在扩展管理中更新本扩展，再重新加载酒馆；若仍显示旧版本，可卸载扩展后使用同一仓库链接重新安装。卸载扩展不会删除聊天。
+
 ## 使用
 
 在聊天输入框旁的魔杖扩展菜单点击 **角色聊天管理**。也可以在顶部扩展面板找到 **打开角色聊天管理**。
@@ -56,7 +62,7 @@ npm test
 
 - `POST /api/chats/recent`：无数量上限的聊天摘要列表，不读取完整正文。
 - `SillyTavern.getContext()`：角色、群组、头像、打开聊天和就绪事件。
-- `/script.js` 的 `renameGroupOrCharacterChat`、`deleteCharacterChat`：复用当前聊天保存、重命名、删除及切换流程。
+- `/script.js` 的 `renameGroupOrCharacterChat`、`deleteCharacterChatByName`：复用宿主的重命名、删除及切换流程。删除参数为角色索引，不是头像文件名。`deleteCharacterChatByName` 同时见于宿主 v2.3.0 和 v2.4.0 的源码。
 - `/scripts/group-chats.js` 的 `deleteGroupChat`：群聊删除及引用更新。
 
 参考：

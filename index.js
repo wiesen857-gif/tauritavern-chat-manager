@@ -1,4 +1,4 @@
-import { deleteCharacterChat, renameGroupOrCharacterChat } from '/script.js';
+import { deleteCharacterChatByName, renameGroupOrCharacterChat } from '/script.js';
 import { deleteGroupChat } from '/scripts/group-chats.js';
 import { buildOwners, chatKey, filterOwners, ownerKey, validateName } from './model.js';
 
@@ -277,7 +277,11 @@ function mount() {
 
     async function deleteOne(owner, chat) {
         if (owner.kind === 'group') await deleteGroupChat(owner.id, chat.name);
-        else await deleteCharacterChat(owner.id, chat.name);
+        else {
+            const characterId = context().characters.findIndex(character => character.avatar === owner.id);
+            if (characterId < 0) throw new Error('角色已不存在，请刷新列表。');
+            await deleteCharacterChatByName(characterId, chat.name);
+        }
         selected.delete(chatKey(owner, chat.name));
         owner.chats = owner.chats.filter(entry => entry !== chat);
     }
