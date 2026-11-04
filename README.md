@@ -18,7 +18,9 @@
 
 ## 通过仓库链接安装
 
-1. 复制本 GitHub 仓库的首页链接。
+安装链接：**https://github.com/wiesen857-gif/tauritavern-chat-manager**
+
+1. 复制上面的仓库链接。
 2. 打开 TauriTavern 顶部的扩展面板，选择“安装扩展”。
 3. 粘贴仓库链接并安装，然后按提示重新加载酒馆。
 4. 在输入框旁的魔杖菜单点击“角色聊天管理”。
