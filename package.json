@@ -1,0 +1,10 @@
+{
+  "name": "tauritavern-chat-manager",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check index.js && node --check model.js"
+  }
+}
